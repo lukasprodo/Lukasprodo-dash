@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lukasprodo Dash - Eén Sprong</title>
+    <!-- Laad Tailwind CSS voor snelle styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Aangepaste stijlen voor het spelcanvas en de elementen */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Donkere GitHub-achtige achtergrond */
+        }
+        #gameCanvas {
+            background-color: #161b22; /* Iets lichtere achtergrond voor het speelveld */
+            border: 4px solid #58a6ff; /* Neonblauwe rand */
+            box-shadow: 0 0 20px rgba(88, 166, 255, 0.5); /* Neon gloed */
+            cursor: pointer;
+            touch-action: none; /* Voorkom standaard touch-gedrag zoals scrollen */
+            position: relative;
+        }
+
+        /* Spring-animatie klasse (Toegevoegd door JS) */
+        .bounce-animation {
+            animation: bounce 0.4s ease-out;
+        }
+
+        @keyframes bounce {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); } /* Lichte opwaartse beweging */
+            100% { transform: translateY(0); }
+        }
+
+        /* Stijl voor de knop */
+        .game-button {
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .game-button:hover {
+            box-shadow: 0 6px 10px rgba(88, 166, 255, 0.4);
+            transform: translateY(-1px);
+        }
+        .game-button:active {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            transform: translateY(1px);
+        }
+
+        /* Shop Modal Overlay */
+        .shop-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; 
+        }
+        
+        .coin-icon {
+            /* Inline SVG coin icon */
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 0.25rem;
+            fill: #ffd700; /* Goudkleur */
+        }
+    </style>
+</head>
+<body class="p-4 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-4xl space-y-4">
+
+        <h1 class="text-3xl font-bold text-center text-white mb-6">
+            Lukasprodo Dash
+        </h1>
+
+        <!-- Spel Container -->
+        <div id="gameContainer" class="relative flex flex-col items-center justify-center rounded-xl bg-[#21262d] p-6 shadow-2xl">
+
+            <!-- WINKEL KNOP (rechtsboven in de container) -->
+            <button id="shopButton"
+                    class="absolute top-4 right-4 game-button px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-full
+                           focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50 text-sm flex items-center">
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                Winkel
+            </button>
+
+
+            <!-- Progress Bar Container -->
+            <div id="progressBarWrapper" class="relative w-full mb-4 flex justify-center">
+                <div id="progressBarContainer" class="w-full max-w-lg h-4 bg-gray-700 rounded-full overflow-hidden">
+                    <div id="progressBar" class="h-full bg-green-500 transition-all duration-100" style="width: 0%;"></div>
+                </div>
+                <div id="progressText" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white max-w-lg mx-auto">0%</div>
+            </div>
+
+            <!-- Canvas waar het spel op wordt getekend -->
+            <canvas id="gameCanvas" width="800" height="200" class="w-full h-auto rounded-lg"></canvas>
+
+            <!-- Boss Fight Statistieken -->
+             <div id="bossStats" class="mt-2 text-center text-xl font-mono text-white hidden">
+                <p id="dodgeCounter" class="text-red-400">Dodges Nodig: 10</p>
+                <p id="pistolStatus" class="text-green-400 font-bold hidden">PISTOOL VERKREGEN! Vuur!</p>
+            </div>
+
+            <!-- Spel Informatie -->
+            <div class="flex flex-col sm:flex-row justify-between items-center w-full mt-4 space-y-3 sm:space-y-0 sm:space-x-4">
+                <div class="text-xl font-mono text-green-400 flex-1 text-left">
+                    Score: <span id="scoreDisplay" class="font-bold">0</span>
+                </div>
+                <div class="text-xl font-mono text-red-400 flex-1 text-center">
+                    High Score: <span id="highScoreDisplay" class="font-bold">0</span>
+                </div>
+                <div class="text-xl font-mono text-yellow-400 flex-1 text-right">
+                    <svg class="coin-icon" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM6.75 6.75A.75.75 0 017.5 6h5a.75.75 0 010 1.5h-2.75a.5.5 0 000 1h2a.5.5 0 010 1h-2a.5.5 0 000 1h2.75a.75.75 0 010 1.5h-5a.75.75 0 010-1.5h2.75a.5.5 0 000-1h-2a.5.5 0 010-1h2a.5.5 0 000-1H6.75z"/></svg>
+                    Munten: <span id="coinDisplay" class="font-bold">0</span>
+                </div>
+            </div>
+            
+            <!-- Herstart & Pauze Knoppen -->
+            <div class="w-full flex justify-center mt-4 space-x-4">
+                <button id="restartButton"
+                        class="game-button px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full
+                               focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                    Herstart Spel
+                </button>
+                <button id="pauseButton"
+                        class="game-button px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-full
+                               focus:outline-none focus:ring-4 focus:ring-yellow-500 focus:ring-opacity-50">
+                    Pauze
+                </button>
+            </div>
+
+            <!-- Instructies/Status -->
+            <div id="statusMessage" class="text-xl mt-4 text-yellow-300 text-center">
+                Druk op SPATIEBALK of klik om te springen! Je kunt maar één keer springen!
+            </div>
+        </div>
+        
+        <!-- WINKEL MODAL (Wordt zichtbaar gemaakt door JS) -->
+        <div id="shopModal" class="shop-overlay hidden">
+            <div class="bg-[#21262d] rounded-xl p-8 max-w-xl w-full border-4 border-purple-500 shadow-2xl space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-3xl font-bold text-white">De Kleuren Winkel</h2>
+                    <div class="text-2xl text-yellow-400 flex items-center">
+                        <svg class="coin-icon w-6 h-6 mr-1" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM6.75 6.75A.75.75 0 017.5 6h5a.75.75 0 010 1.5h-2.75a.5.5 0 000 1h2a.5.5 0 010 1h-2a.5.5 0 000 1h2.75a.75.75 0 010 1.5h-5a.75.75 0 010-1.5h2.75a.5.5 0 000-1h-2a.5.5 0 010-1h2a.5.5 0 000-1H6.75z"/></svg>
+                        Munten: <span id="modalCoinDisplay" class="font-bold ml-1">0</span>
+                    </div>
+                </div>
+
+                <div id="shopItemsContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <!-- Kleuren worden hier door JS ingevoegd -->
+                </div>
+
+                <button id="closeShopButton" class="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
+                    Sluiten
+                </button>
+                <div id="shopMessage" class="text-center text-sm text-red-400 hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BELANGRIJKE OPLOSSING: type="module" toegevoegd om de 'import' statements toe te staan -->
+    <script type="module">
+        // === FIREBASE INITIALISATIE EN AUTHENTICATIE ===
+        // De Canvas omgeving voorziet deze variabelen
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId = null;
+
+        // Importeer de benodigde Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // De shop items, dit is de masterlijst
+        const SHOP_ITEMS = [
+            { id: 'red', name: 'Rood', price: 0, color: '#ff7b72' }, // Standaard kleur (gratis)
+            { id: 'green', name: 'Groen', price: 10, color: '#7bed9f' }, 
+            { id: 'yellow', name: 'Geel', price: 25, color: '#f0d84f' }, 
+            { id: 'purple', name: 'Paars', price: 50, color: '#bd93f9' }, 
+            { id: 'cyan', name: 'Cyaan', price: 75, color: '#88e0ef' }, 
+            { id: 'orange', name: 'Oranje', price: 100, color: '#ffa500' } 
+        ];
+
+        // Standaard gebruikersgegevens (als Firebase faalt of de documenten leeg zijn)
+        let userGameData = {
+            coins: 0,
+            selectedColorId: 'red',
+            purchasedColors: ['red']
+        };
+
+        // Initialiseer Firebase en voer authenticatie uit
+        async function initializeFirebase() {
+            if (!firebaseConfig) {
+                console.error("Firebase configuratie niet beschikbaar. Munten/Instellingen zijn alleen lokaal voor deze sessie.");
+                loadHighScoreFromLocalStorage();
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('Debug');
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Firebase geauthenticeerd. User ID:", userId);
+                        loadHighScoreFromFirestore();
+                        setupUserDataListener(); // Luister naar gebruikersgegevens
+                    } else {
+                        console.warn("Niet geauthentiseerd. Highscore/Munten zijn lokaal voor deze sessie.");
+                        loadHighScoreFromLocalStorage();
+                    }
+                });
+            } catch (error) {
+                console.error("Fout bij Firebase initialisatie of authenticatie:", error);
+                loadHighScoreFromLocalStorage();
+            }
+        }
+
+        // --- Firestore Paden ---
+        const getHighScoreDocRef = () => {
+            if (!db) return null;
+            return doc(db, `artifacts/${appId}/public/data/gameScores/lukasprodoDashHighScore`);
+        };
+        const getUserDataDocRef = () => {
+            if (!db || !userId) return null;
+            // Dit is het pad voor PRIVATE gebruikersgegevens
+            return doc(db, `artifacts/${appId}/users/${userId}/gameData/lukasprodoDashUserData`);
+        };
+
+        // --- Gebruikersgegevens (Munten, Kleuren) Logica ---
+
+        function setupUserDataListener() {
+            const userDataRef = getUserDataDocRef();
+            if (!userDataRef) return;
+
+            onSnapshot(userDataRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Zorg ervoor dat arrays bestaan
+                    userGameData.coins = data.coins || 0;
+                    userGameData.selectedColorId = data.selectedColorId || 'red';
+                    userGameData.purchasedColors = Array.isArray(data.purchasedColors) ? data.purchasedColors : ['red'];
+
+                    // Zorg ervoor dat de geselecteerde kleur in de SHOP_ITEMS lijst staat
+                    const selectedItem = SHOP_ITEMS.find(item => item.id === userGameData.selectedColorId);
+                    player.color = selectedItem ? selectedItem.color : SHOP_ITEMS[0].color;
+
+                    updateDisplay();
+                    renderShopItems();
+                    console.log("Gebruikersgegevens geladen:", userGameData);
+
+                } else {
+                    // Initialiseer de gegevens als ze niet bestaan
+                    console.log("Nieuwe gebruikersgegevens. Initialiseren.");
+                    saveUserData(userGameData);
+                }
+            }, (error) => {
+                console.error("Fout bij het luisteren naar gebruikersgegevens:", error);
+            });
+        }
+
+        async function saveUserData(data) {
+            const userDataRef = getUserDataDocRef();
+            if (!userDataRef) return;
+
+            try {
+                // Gebruik setDoc met merge: true om alleen de velden te overschrijven die we aanleveren
+                await setDoc(userDataRef, data, { merge: true });
+            } catch (error) {
+                console.error("Fout bij het opslaan van gebruikersgegevens:", error);
+            }
+        }
+        
+        // --- HighScore Logica (Publiek) ---
+
+        function loadHighScoreFromFirestore() {
+            const highscoreRef = getHighScoreDocRef();
+            if (!highscoreRef) return;
+
+            onSnapshot(highscoreRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    currentHighScore = data.score ? parseInt(data.score, 10) : 0;
+                    updateDisplay();
+                } else {
+                    currentHighScore = 0;
+                    updateDisplay();
+                }
+            }, (error) => {
+                console.error("Fout bij het luisteren naar Firestore highscore:", error);
+                loadHighScoreFromLocalStorage();
+            });
+        }
+
+        async function saveHighScoreToFirestore(newScore) {
+            const highscoreRef = getHighScoreDocRef();
+            if (!highscoreRef) return;
+
+            try {
+                const docSnap = await getDoc(highscoreRef);
+                let currentSavedScore = 0;
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    currentSavedScore = data.score ? parseInt(data.score, 10) : 0;
+                }
+
+                if (newScore > currentSavedScore) {
+                    await setDoc(highscoreRef, {
+                        score: newScore,
+                        updatedBy: userId,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (error) {
+                console.error("Fout bij het opslaan van highscore in Firestore:", error);
+            }
+        }
+
+        // --- Lokale opslag Fallback Functies ---
+        // (Alleen voor Highscore als Firebase faalt)
+        const LOCAL_STORAGE_KEY = 'lukasprodoDashHighScore';
+
+        function loadHighScoreFromLocalStorage() {
+            const storedScore = localStorage.getItem(LOCAL_STORAGE_KEY);
+            currentHighScore = storedScore ? parseInt(storedScore, 10) : 0;
+            updateDisplay();
+        }
+
+        function saveHighScoreToLocalStorage(newScore) {
+            if (newScore > currentHighScore) {
+                localStorage.setItem(LOCAL_STORAGE_KEY, newScore);
+            }
+        }
+
+        // Roep de Firebase initialisatie aan
+        initializeFirebase();
+
+        // === GAME LOGICA ===
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const coinDisplay = document.getElementById('coinDisplay');
+        const restartButton = document.getElementById('restartButton');
+        const pauseButton = document.getElementById('pauseButton'); 
+        const statusMessage = document.getElementById('statusMessage');
+        const shopButton = document.getElementById('shopButton');
+        const shopModal = document.getElementById('shopModal');
+        const closeShopButton = document.getElementById('closeShopButton');
+        const shopItemsContainer = document.getElementById('shopItemsContainer');
+        const modalCoinDisplay = document.getElementById('modalCoinDisplay');
+
+        // Progress Bar Elementen
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        // Boss Fight Elementen
+        const bossStats = document.getElementById('bossStats');
+        const dodgeCounter = document.getElementById('dodgeCounter');
+        const pistolStatus = document.getElementById('pistolStatus');
+
+
+        // Spel Constanten
+        const GRAVITY = 0.9;
+        const JUMP_VELOCITY = -16.5; // Kracht van de normale sprong (negatief is omhoog).
+        const GROUND_Y = canvas.height - 20;
+        const PLAYER_SIZE = 20;
+        const GAME_SPEED = 4; // Lagere snelheid
+        const COIN_SIZE = 12;
+        const COIN_SPIN_SPEED = 0.05; 
+        
+        // Maximale sprongen is nu 1 (alleen vanaf de grond)
+        const MAX_JUMPS = 1; 
+
+        // ** CONSTANTEN VOOR BLOKKEN EN MOEILIJKHEIDSGRAAD **
+        const LEVEL_LENGTH_SCORE = 3000; // Verdrievoudigde level lengte
+        const BOSS_TRIGGER_SCORE = LEVEL_LENGTH_SCORE * 0.95; // 95% 
+        
+        // Obstakel Dimensies
+        const SPIKE_WIDTH = 10;
+        const SPIKE_HEIGHT = 20;
+        const SPIKE_Y = GROUND_Y - SPIKE_HEIGHT;
+        const SPIKE_GAP = 5; 
+
+        const BLOCK_WIDTH = 40; 
+        const BLOCK_HEIGHT = 40; 
+        const BLOCK_Y = GROUND_Y - BLOCK_HEIGHT; 
+
+        const SPIKES_AFTER_BLOCK = 6; 
+        const BLOCK_SPIKE_GAP = BLOCK_WIDTH * 1.5; 
+
+        // Generatie Kansen
+        const CHANCE_SPIKES = 0.7; 
+        const CHANCE_BLOCK = 0.1; 
+        const CHANCE_COIN = 0.15; 
+        const MAX_SPIKES_IN_ROW = 4;
+        
+        // Boss Constanten
+        const BOSS_SIZE = 60;
+        const BOSS_X = 700;
+        const BOSS_Y = GROUND_Y - BOSS_SIZE;
+        const PROJECTILE_SIZE = 10;
+        const PROJECTILE_SPEED = 7;
+        const SHOTS_TO_DODGE = 10;
+        const BOSS_SHOOT_INTERVAL = 120; // Elke 2 seconden (60 FPS * 2)
+        
+        // Bepaalt hoe hoog de projectielen vliegen in het Boss Fight
+        const PROJECTILE_HIT_HEIGHT = 10; 
+
+
+        // Spel Staat
+        let gameState = 'ready'; // 'ready', 'running', 'boss_fight', 'game_over', 'won'
+        let isPaused = false; 
+        let score = 0;
+        let currentHighScore = 0;
+        let lastObstacleType = 'none'; 
+        let frameCount = 0; 
+        let spikeCooldownFrames = 0; // Nieuwe cooldown teller (3 seconden = 180 frames)
+        
+        // ** Boss Fight Staat **
+        let boss = {};
+        let projectiles = [];
+        let playerShotsDodged = 0;
+        let hasPistol = false;
+        let playerProjectiles = [];
+        let bossShootTimer = BOSS_SHOOT_INTERVAL;
+        
+        // ** Sprong Staat **
+        let jumpsRemaining = MAX_JUMPS; 
+
+        // Speler Object
+        let player = {
+            x: 50,
+            y: GROUND_Y - PLAYER_SIZE,
+            vy: 0,
+            isJumping: false,
+            color: '#ff7b72' // Standaard kleur (wordt overschreven bij het laden van user data)
+        };
+        
+        // Initialiseer Boss
+        function initBoss() {
+            boss = {
+                x: BOSS_X,
+                y: BOSS_Y,
+                width: BOSS_SIZE,
+                height: BOSS_SIZE,
+                color: '#6e5494' // Paarse/Monster kleur
+            };
+            projectiles = [];
+            playerShotsDodged = 0;
+            hasPistol = false;
+            playerProjectiles = [];
+            bossShootTimer = BOSS_SHOOT_INTERVAL;
+            updateBossStatsDisplay();
+        }
+
+        // Obstakel en Coin Arrays
+        let obstacles = [];
+        let coins = [];
+        let coinSpin = 0; 
+
+        // Geluidsfunctionaliteit (Simulatie)
+        function playJumpSound() {
+            if (gameState !== 'boss_fight' || !hasPistol) {
+                canvas.classList.add('bounce-animation');
+                setTimeout(() => canvas.classList.remove('bounce-animation'), 400);
+            }
+        }
+        
+        // Berekent de voortgang in percentage
+        function calculateProgress() {
+            if (LEVEL_LENGTH_SCORE === 0) return 0;
+            let percentage = (score / LEVEL_LENGTH_SCORE) * 100;
+            return Math.min(100, percentage);
+        }
+
+        // --- Teken Functies ---
+        function drawPlayer() {
+            // Gebruik de geselecteerde kleur uit de user data
+            ctx.fillStyle = player.color; 
+            ctx.fillRect(player.x, player.y, PLAYER_SIZE, PLAYER_SIZE);
+
+            // Voeg een kleine gloed toe voor de stijl
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = 'white'; 
+            ctx.fillRect(player.x + 5, player.y + 5, PLAYER_SIZE - 10, PLAYER_SIZE - 10);
+            ctx.shadowBlur = 0; // Reset schaduw
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                if (obstacle.type === 'spike') {
+                    ctx.fillStyle = '#ff7b72'; 
+                    ctx.beginPath();
+                    ctx.moveTo(obstacle.x, obstacle.y + obstacle.height); 
+                    ctx.lineTo(obstacle.x + obstacle.width / 2, obstacle.y); 
+                    ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height); 
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (obstacle.type === 'block') {
+                    ctx.fillStyle = '#f0d84f'; 
+                    ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+
+                    ctx.strokeStyle = '#d6ad3e';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                }
+            });
+        }
+        
+        function drawCoins() {
+            coinSpin = (coinSpin + COIN_SPIN_SPEED) % (Math.PI * 2); // Update rotatie
+            
+            coins.forEach(coin => {
+                ctx.save();
+                ctx.translate(coin.x + COIN_SIZE / 2, coin.y + COIN_SIZE / 2); // Verplaats naar het midden
+                
+                // Simuleer een draaiend effect door de breedte te schalen
+                const scaleX = Math.abs(Math.cos(coinSpin));
+                ctx.scale(scaleX, 1); 
+
+                ctx.fillStyle = '#FFD700'; // Goud
+                ctx.beginPath();
+                ctx.arc(0, 0, COIN_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ccaa00';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                ctx.restore();
+            });
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#1f6feb'; // Donkerblauw/Grond kleur
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+
+            ctx.strokeStyle = '#2d87e0';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 10) {
+                ctx.beginPath();
+                ctx.moveTo(x, GROUND_Y);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+        }
+        
+        function drawBoss() {
+            // Hoofd body (Paars Monster)
+            ctx.fillStyle = boss.color;
+            ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
+
+            // Oog (simpel wit rechthoekje)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(boss.x + boss.width / 4, boss.y + boss.height / 4, boss.width / 2, boss.height / 2);
+            
+            // Pupil (zwart)
+            ctx.fillStyle = 'black';
+            ctx.fillRect(boss.x + boss.width / 3, boss.y + boss.height / 3, boss.width / 3, boss.height / 3);
+        }
+        
+        function drawProjectiles() {
+            projectiles.forEach(p => {
+                ctx.fillStyle = '#ff3333'; // Rode kogel
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, PROJECTILE_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function drawPlayerProjectiles() {
+            playerProjectiles.forEach(p => {
+                ctx.fillStyle = '#00ff00'; // Groene speler kogel
+                ctx.fillRect(p.x, p.y, 15, 5); 
+            });
+        }
+
+        // --- Spel Logica Functies ---
+        function jump() {
+            if (gameState === 'game_over' || gameState === 'won' || isPaused) {
+                if (gameState === 'ready') {
+                    startGame();
+                }
+                return;
+            }
+            
+            if (gameState === 'boss_fight' && hasPistol) {
+                firePistol();
+                return;
+            }
+
+            // Alleen springen als we op de grond staan (jumpsRemaining is 1)
+            if (jumpsRemaining === MAX_JUMPS) {
+                player.vy = JUMP_VELOCITY; // Volle kracht
+                player.isJumping = true;
+                jumpsRemaining = 0; // Geen sprongen meer in de lucht
+                playJumpSound();
+            }
+        }
+        
+        function firePistol() {
+            // Vuur een kogel af (horizontaal)
+            playerProjectiles.push({
+                x: player.x + PLAYER_SIZE,
+                y: player.y + PLAYER_SIZE / 2 - 2, // Midden van de speler
+                width: 15,
+                height: 5,
+                vx: 10 // Snelheid van de kogel
+            });
+            // Geen geluidssimulatie of visuele bounce voor het schot
+        }
+        
+        // Nieuwe functie voor Pauze/Hervat
+        function togglePause() {
+            if (gameState === 'ready' || gameState === 'game_over' || gameState === 'won') return; 
+
+            isPaused = !isPaused;
+
+            if (isPaused) {
+                pauseButton.textContent = "Hervat";
+                pauseButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                pauseButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                statusMessage.textContent = "Spel gepauzeerd. Druk op Hervat of SPATIEBALK.";
+            } else {
+                pauseButton.textContent = "Pauze";
+                pauseButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                pauseButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                
+                if (gameState === 'running') {
+                    statusMessage.textContent = "Spelen! Druk op SPATIEBALK/klik om te springen! Je kunt maar één keer springen!";
+                } else if (gameState === 'boss_fight') {
+                    statusMessage.textContent = hasPistol ? "Vechten! Druk op SPATIEBALK/klik om te schieten." : "Vechten! Ontwijk 10 schoten!";
+                }
+                
+                // Hervat de gameloop
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+
+        function updatePlayer() {
+            let landedOnBlock = false;
+
+            player.vy += GRAVITY;
+            player.y += player.vy;
+
+            const p = player;
+
+            // 1. Controleer op landing op een BLOK
+            obstacles.filter(o => o.type === 'block').forEach(block => {
+                const x_overlap = p.x + PLAYER_SIZE > block.x && p.x < block.x + block.width;
+
+                if (x_overlap) {
+                    if (p.vy >= 0 && p.y + PLAYER_SIZE >= block.y && p.y + PLAYER_SIZE < block.y + block.height) {
+                        const previousY = p.y - p.vy;
+
+                        if (previousY + PLAYER_SIZE <= block.y) {
+                            p.y = block.y - PLAYER_SIZE; 
+                            p.vy = 0;
+                            p.isJumping = false;
+                            landedOnBlock = true;
+                            jumpsRemaining = MAX_JUMPS; // Reset sprongen op een blok
+                        }
+                    }
+                }
+            });
+
+            // 2. Controleer op landing op de GROND 
+            if (!landedOnBlock && player.y >= GROUND_Y - PLAYER_SIZE) {
+                player.y = GROUND_Y - PLAYER_SIZE;
+                player.vy = 0;
+                player.isJumping = false;
+                jumpsRemaining = MAX_JUMPS; // Reset sprongen op de grond
+            }
+        }
+
+        function generateObstacle() {
+            // Controleer of de cooldown actief is. Zo ja, alleen munten toelaten.
+            const isCooldownActive = spikeCooldownFrames > 0;
+            
+            const chance = Math.random();
+
+            // 1. Probeer een Coin te genereren (Coins zijn altijd toegestaan, ook tijdens cooldown)
+            if (chance < CHANCE_COIN) {
+                const coinY = GROUND_Y - COIN_SIZE; 
+                coins.push({
+                    x: canvas.width,
+                    y: coinY,
+                    width: COIN_SIZE,
+                    height: COIN_SIZE,
+                    type: 'coin'
+                });
+                lastObstacleType = 'coin'; 
+                return; 
+            }
+            
+            // Als de cooldown actief is, genereer dan GEEN spikes of blokken.
+            if (isCooldownActive) {
+                lastObstacleType = 'none';
+                return;
+            }
+
+            // 2. Probeer Spikes of Blok te genereren
+            let generatedType = 'none';
+            
+            if (chance < CHANCE_COIN + CHANCE_SPIKES) { 
+                // Spikes
+                const numSpikes = Math.floor(Math.random() * MAX_SPIKES_IN_ROW) + 1;
+                let currentX = canvas.width; 
+
+                for (let i = 0; i < numSpikes; i++) {
+                    obstacles.push({
+                        x: currentX,
+                        y: SPIKE_Y,
+                        width: SPIKE_WIDTH,
+                        height: SPIKE_HEIGHT,
+                        type: 'spike' 
+                    });
+                    currentX += SPIKE_WIDTH + SPIKE_GAP;
+                }
+                generatedType = 'spike'; 
+
+            } else if (lastObstacleType !== 'block' && chance < CHANCE_COIN + CHANCE_SPIKES + CHANCE_BLOCK) {
+                // Blok + Spikes (Alleen als vorige GEEN blok was)
+                
+                // Blok
+                obstacles.push({
+                    x: canvas.width,
+                    y: BLOCK_Y,
+                    width: BLOCK_WIDTH,
+                    height: BLOCK_HEIGHT,
+                    type: 'block' 
+                });
+
+                // Vaste reeks Spikes
+                let currentX = canvas.width + BLOCK_WIDTH + BLOCK_SPIKE_GAP; 
+                for (let i = 0; i < SPIKES_AFTER_BLOCK; i++) {
+                    obstacles.push({
+                        x: currentX,
+                        y: SPIKE_Y,
+                        width: SPIKE_WIDTH,
+                        height: SPIKE_HEIGHT,
+                        type: 'spike' 
+                    });
+                    currentX += SPIKE_WIDTH + SPIKE_GAP;
+                }
+                
+                // ** NIEUW: Start de 3-seconden cooldown na deze reeks **
+                spikeCooldownFrames = 60 * 3; // 60 FPS * 3 seconden
+                
+                generatedType = 'block';
+            }
+
+            // Alleen als er een echt obstakel is gegenereerd
+            if (generatedType !== 'none') {
+                 lastObstacleType = generatedType; 
+            } else {
+                 lastObstacleType = 'none'; // Als er niets is gegenereerd, reset
+            }
+        }
+
+        function updateObstacles() {
+            // Beweeg de obstakels en verwijder degenen die buiten beeld zijn
+            obstacles = obstacles.filter(obstacle => {
+                obstacle.x -= GAME_SPEED;
+                return obstacle.x + obstacle.width > 0;
+            });
+        }
+        
+        function updateCoins() {
+             // Beweeg de munten en verwijder degenen die buiten beeld zijn
+            coins = coins.filter(coin => {
+                coin.x -= GAME_SPEED;
+                return coin.x + coin.width > 0;
+            });
+        }
+        
+        function updateBoss() {
+            // Boss beweegt niet, maar schiet projectielen
+            bossShootTimer--;
+            
+            if (bossShootTimer <= 0) {
+                shootProjectile();
+                bossShootTimer = BOSS_SHOOT_INTERVAL;
+            }
+        }
+        
+        function shootProjectile() {
+            // Aangepaste Y-positie om laag over de grond te vliegen
+            const projectileY = GROUND_Y - PROJECTILE_HIT_HEIGHT; 
+            
+            projectiles.push({
+                x: boss.x,
+                y: projectileY, // Vliegt laag bij de grond
+                width: PROJECTILE_SIZE,
+                height: PROJECTILE_SIZE,
+                vx: -PROJECTILE_SPEED, // Vliegt naar links
+                vy: 0 // Horizontaal
+            });
+        }
+        
+        function updateProjectiles() {
+            projectiles = projectiles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                return p.x + p.width > 0; // Buiten beeld
+            });
+        }
+        
+        function updatePlayerProjectiles() {
+            playerProjectiles = playerProjectiles.filter(p => {
+                p.x += p.vx;
+                return p.x < canvas.width;
+            });
+        }
+
+
+        function checkCollision() {
+            const p = player;
+
+            // 1. Controleer op dodelijke obstakel botsingen (alleen in de running state)
+            if (gameState === 'running') {
+                for (const obstacle of obstacles) {
+                    const x_overlap = p.x < obstacle.x + obstacle.width && p.x + PLAYER_SIZE > obstacle.x;
+                    const y_overlap = p.y + PLAYER_SIZE > obstacle.y && p.y < obstacle.y + obstacle.height; 
+
+                    if (x_overlap && y_overlap) {
+                        if (obstacle.type === 'spike') {
+                            endGame();
+                            return true;
+                        } else if (obstacle.type === 'block') {
+                            const isLandedOnTop = p.y + PLAYER_SIZE === obstacle.y;
+                            if (!isLandedOnTop) {
+                                endGame();
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 2. Controleer op Boss Projectiel botsingen (alleen in de boss_fight state)
+            if (gameState === 'boss_fight') {
+                for (let i = 0; i < projectiles.length; i++) {
+                    const proj = projectiles[i];
+                    
+                    // Projectiel is een cirkel, speler is een vierkant. Gebruik simpele AABB botsing.
+                    const x_overlap = p.x < proj.x + PROJECTILE_SIZE && p.x + PLAYER_SIZE > proj.x;
+                    const y_overlap = p.y < proj.y + PROJECTILE_SIZE && p.y + PLAYER_SIZE > proj.y; 
+
+                    if (x_overlap && y_overlap) {
+                        endGame(); // Direct Game Over bij een hit
+                        return true;
+                    }
+                    
+                    // Controleer op 'gedodge' (als projectiel de speler passeert)
+                    // Dit betekent dat de kogel de x-positie van de speler heeft gepasseerd zonder te raken
+                    if (proj.x + proj.width < p.x && !proj.dodged) {
+                        proj.dodged = true; // Markeer als gedodge
+                        playerShotsDodged++;
+                        updateBossStatsDisplay();
+                        
+                        if (playerShotsDodged >= SHOTS_TO_DODGE && !hasPistol) {
+                            hasPistol = true;
+                            statusMessage.textContent = "PISTOOL VERKREGEN! Druk op SPATIEBALK/klik om de baas te raken!";
+                            updateBossStatsDisplay();
+                        }
+                    }
+                }
+            }
+            
+            // 3. Controleer op Speler Projectiel vs Boss
+            if (gameState === 'boss_fight' && hasPistol) {
+                playerProjectiles = playerProjectiles.filter(proj => {
+                    const x_overlap = proj.x < boss.x + boss.width && proj.x + proj.width > boss.x;
+                    const y_overlap = proj.y < boss.y + boss.height && proj.y + proj.height > boss.y; 
+                    
+                    if (x_overlap && y_overlap) {
+                        // HIT! Spel gewonnen.
+                        winGame();
+                        return false; // Verwijder kogel
+                    }
+                    return true; // Houd de kogel in de array
+                });
+            }
+
+            // 4. Controleer op Coin collectie (in beide actieve staten)
+            coins = coins.filter(coin => {
+                const x_overlap = p.x < coin.x + coin.width && p.x + PLAYER_SIZE > coin.x;
+                // De y-overlap check is vereenvoudigd.
+                const y_overlap = p.y < coin.y + coin.height && p.y + PLAYER_SIZE > coin.y; 
+
+                if (x_overlap && y_overlap) {
+                    // Munt verzameld!
+                    userGameData.coins++;
+                    saveUserData(userGameData);
+                    // De munt wordt verwijderd door de filter functie
+                    return false; 
+                }
+                return true; // Houd de munt in de array
+            });
+
+            return false; // Geen dodelijke botsing gevonden
+        }
+
+        function updateScore() {
+            // Score alleen verhogen in de running state
+            if (gameState === 'running') {
+                score++;
+            }
+            updateDisplay();
+        }
+        
+        function updateBossStatsDisplay() {
+            dodgeCounter.textContent = `Dodges Nodig: ${Math.max(0, SHOTS_TO_DODGE - playerShotsDodged)}`;
+            
+            if (hasPistol) {
+                pistolStatus.classList.remove('hidden');
+                dodgeCounter.classList.add('hidden');
+                bossStats.classList.remove('text-red-400');
+                bossStats.classList.add('text-green-400');
+            } else {
+                pistolStatus.classList.add('hidden');
+                dodgeCounter.classList.remove('hidden');
+                bossStats.classList.remove('text-green-400');
+                bossStats.classList.add('text-red-400');
+            }
+        }
+
+        function updateDisplay() {
+            scoreDisplay.textContent = score;
+            if (highScoreDisplay) {
+                 highScoreDisplay.textContent = currentHighScore;
+            }
+            coinDisplay.textContent = userGameData.coins;
+            
+            // Update Progress Bar
+            const progress = calculateProgress();
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${Math.floor(progress)}%`;
+
+            // Controleer op Boss Fight Trigger
+            if (gameState === 'running' && score >= BOSS_TRIGGER_SCORE) {
+                enterBossFight();
+            }
+            
+            // Toon/verberg Boss Stats
+            if (gameState === 'boss_fight') {
+                bossStats.classList.remove('hidden');
+            } else {
+                bossStats.classList.add('hidden');
+            }
+        }
+        
+        // --- Spel Status Functies ---
+        
+        function enterBossFight() {
+            gameState = 'boss_fight';
+            initBoss();
+            
+            // Stop de horizontale beweging van de speler (simulatie van 'stoppen bij 95%')
+            // Reset obstakels om het scherm leeg te maken
+            obstacles = [];
+            
+            // Plaats de speler in de startpositie voor het baasgevecht
+            player.x = 50; 
+            player.y = GROUND_Y - PLAYER_SIZE;
+            player.vy = 0;
+            player.isJumping = false;
+            jumpsRemaining = MAX_JUMPS;
+
+            statusMessage.textContent = "BAASGEVECHT! Ontwijk 10 schoten om je pistool te krijgen!";
+            console.log("Boss Fight gestart!");
+        }
+
+
+        function startGame() {
+            if (gameState === 'running') return; 
+            gameState = 'running';
+            isPaused = false; 
+            pauseButton.textContent = "Pauze"; 
+            pauseButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-red-600', 'cursor-not-allowed', 'bg-blue-600');
+            pauseButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+            
+            score = 0;
+            player.isJumping = false;
+            player.vy = 0;
+            player.y = GROUND_Y - PLAYER_SIZE;
+            obstacles = [];
+            coins = []; 
+            lastObstacleType = 'none'; 
+            jumpsRemaining = MAX_JUMPS; 
+            spikeCooldownFrames = 0; // Reset de cooldown bij de start
+            
+            // Reset boss state (voor de zekerheid)
+            initBoss(); 
+            
+            statusMessage.textContent = "Druk op SPATIEBALK of klik om te springen! Je kunt maar één keer springen!";
+            requestAnimationFrame(gameLoop);
+            updateDisplay();
+        }
+
+        function endGame() {
+            gameState = 'game_over';
+            isPaused = true; // Zorg dat het spel gepauzeerd blijft in de Game Over staat
+            pauseButton.textContent = "Game Over";
+            pauseButton.classList.remove('bg-yellow-600', 'bg-green-600', 'hover:bg-yellow-700', 'hover:bg-green-700');
+            pauseButton.classList.add('bg-red-600', 'cursor-not-allowed');
+
+            statusMessage.textContent = `GAME OVER! Je score: ${score}. Druk op Herstart.`;
+
+            // Controleer highscore
+            if (score > currentHighScore) {
+                currentHighScore = score;
+                statusMessage.textContent = `NIEUWE HIGH SCORE! ${score}! Druk op Herstart.`;
+
+                if (userId) {
+                    saveHighScoreToFirestore(currentHighScore);
+                } else {
+                    saveHighScoreToLocalStorage(currentHighScore);
+                }
+                updateDisplay();
+            }
+        }
+        
+        function winGame() {
+            gameState = 'won';
+            isPaused = true; 
+            pauseButton.textContent = "GEWONNEN!";
+            pauseButton.classList.remove('bg-yellow-600', 'bg-green-600', 'hover:bg-yellow-700', 'hover:bg-green-700', 'bg-red-600');
+            pauseButton.classList.add('bg-blue-600', 'cursor-not-allowed');
+            
+            // Win-score is de LEVEL_LENGTH_SCORE + 100 bonus voor het winnen van de baas
+            const finalScore = LEVEL_LENGTH_SCORE + 100; 
+            score = finalScore; 
+            
+            if (finalScore > currentHighScore) {
+                 currentHighScore = finalScore;
+                 statusMessage.textContent = `OVERWINNING! Nieuwe HIGH SCORE: ${currentHighScore}! Druk op Herstart.`;
+                 
+                if (userId) {
+                    saveHighScoreToFirestore(currentHighScore);
+                } else {
+                    saveHighScoreToLocalStorage(currentHighScore);
+                }
+            } else {
+                statusMessage.textContent = `OVERWINNING! Je score: ${finalScore}. Druk op Herstart.`;
+            }
+
+            updateDisplay();
+        }
+
+
+        // Hoofd Spel Lus
+        function gameLoop() {
+            if (isPaused || gameState === 'game_over' || gameState === 'won') return;
+
+            // 1. Wis het canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Teken Grond
+            drawGround();
+            
+            // 3. Update en Teken op basis van de staat
+            
+            if (gameState === 'running') {
+                drawObstacles();
+                updatePlayer();
+                updateObstacles();
+                updateCoins();
+                updateScore();
+                
+                // ** NIEUW: Verlaag de cooldown timer voor spikes **
+                if (spikeCooldownFrames > 0) {
+                    spikeCooldownFrames--;
+                }
+                
+                // Genereer obstakels
+                frameCount++;
+                const progress = calculateProgress();
+
+                // Genereer alleen obstakels als we onder de 95% zijn
+                if (progress < 95) {
+                    if (frameCount % 60 === 0) {
+                        generateObstacle();
+                    }
+                }
+            } 
+            
+            else if (gameState === 'boss_fight') {
+                updatePlayer();
+                updateBoss();
+                updateProjectiles();
+                updatePlayerProjectiles(); // Update de kogels van de speler
+
+                drawBoss();
+                drawProjectiles();
+                drawPlayerProjectiles();
+                drawCoins(); // Munten blijven zichtbaar en verzamelbaar
+            }
+            
+            // 4. Teken de speler (altijd als laatste om boven alles te staan)
+            drawPlayer();
+
+            // 5. Controleer op botsing (dodelijke botsingen beëindigen de loop)
+            if (checkCollision()) {
+                return; 
+            }
+
+            // 6. Loop
+            requestAnimationFrame(gameLoop);
+        }
+        
+        
+        // === WINKEL LOGICA EN UI ===
+        
+        function openShop() {
+            console.log("Winkel openen...");
+            // Pauzeer het spel als het loopt
+            if (gameState === 'running' || gameState === 'boss_fight') {
+                togglePause();
+            }
+            shopModal.classList.remove('hidden'); // Maak zichtbaar
+            renderShopItems();
+        }
+        
+        function closeShop() {
+            console.log("Winkel sluiten...");
+            shopModal.classList.add('hidden'); // Verberg
+        }
+        
+        function renderShopItems() {
+            modalCoinDisplay.textContent = userGameData.coins;
+            shopItemsContainer.innerHTML = '';
+            const shopMessage = document.getElementById('shopMessage');
+            shopMessage.textContent = '';
+            shopMessage.classList.add('hidden');
+
+            SHOP_ITEMS.forEach(item => {
+                const isOwned = userGameData.purchasedColors.includes(item.id);
+                const isSelected = userGameData.selectedColorId === item.id;
+                
+                let buttonText, buttonClass;
+
+                if (isSelected) {
+                    buttonText = 'Geselecteerd';
+                    buttonClass = 'bg-green-500 cursor-default';
+                } else if (isOwned) {
+                    buttonText = 'Selecteer';
+                    buttonClass = 'bg-blue-600 hover:bg-blue-700';
+                } else {
+                    buttonText = `Koop (${item.price})`;
+                    buttonClass = 'bg-yellow-600 hover:bg-yellow-700';
+                }
+                
+                const itemHtml = `
+                    <div class="p-4 rounded-lg flex flex-col items-center border ${isSelected ? 'border-green-400 ring-4 ring-green-400' : 'border-gray-700'}">
+                        <div class="w-12 h-12 rounded-lg mb-3 shadow-lg" style="background-color: ${item.color}; border: 2px solid ${item.color === '#ff7b72' ? 'white' : 'transparent'};"></div>
+                        <p class="font-semibold text-white mb-3">${item.name}</p>
+                        <button 
+                            data-id="${item.id}" 
+                            data-price="${item.price}"
+                            data-color="${item.color}"
+                            class="shop-action-button w-full py-1 text-sm text-white font-medium rounded-md transition-colors ${buttonClass}"
+                            ${isSelected ? 'disabled' : ''}
+                        >
+                            ${buttonText}
+                        </button>
+                    </div>
+                `;
+                shopItemsContainer.insertAdjacentHTML('beforeend', itemHtml);
+            });
+            
+            // Voeg de event listeners toe na het renderen
+            document.querySelectorAll('.shop-action-button').forEach(button => {
+                button.addEventListener('click', handleShopAction);
+            });
+        }
+        
+        function handleShopAction(event) {
+            const itemId = event.currentTarget.dataset.id;
+            const itemPrice = parseInt(event.currentTarget.dataset.price);
+            const itemColor = event.currentTarget.dataset.color;
+            const shopMessage = document.getElementById('shopMessage');
+            
+            const isOwned = userGameData.purchasedColors.includes(itemId);
+            
+            shopMessage.classList.add('hidden');
+
+            if (isOwned) {
+                // Selecteer de kleur
+                userGameData.selectedColorId = itemId;
+                player.color = itemColor;
+                saveUserData(userGameData);
+                renderShopItems(); // Herrender om de 'Geselecteerd' status te tonen
+                shopMessage.textContent = `${SHOP_ITEMS.find(i => i.id === itemId).name} geselecteerd!`;
+                shopMessage.classList.remove('hidden');
+                shopMessage.classList.remove('text-red-400');
+                shopMessage.classList.add('text-green-400');
+                
+            } else {
+                // Koop de kleur
+                if (userGameData.coins >= itemPrice) {
+                    userGameData.coins -= itemPrice;
+                    userGameData.purchasedColors.push(itemId);
+                    userGameData.selectedColorId = itemId;
+                    player.color = itemColor;
+                    saveUserData(userGameData);
+                    renderShopItems();
+                    shopMessage.textContent = `${SHOP_ITEMS.find(i => i.id === itemId).name} gekocht en geselecteerd!`;
+                    shopMessage.classList.remove('hidden');
+                    shopMessage.classList.remove('text-red-400');
+                    shopMessage.classList.add('text-green-400');
+                    
+                } else {
+                    // Te weinig munten
+                    shopMessage.textContent = `Niet genoeg munten! Je hebt ${itemPrice} munten nodig.`;
+                    shopMessage.classList.remove('hidden');
+                    shopMessage.classList.remove('text-green-400');
+                    shopMessage.classList.add('text-red-400');
+                }
+            }
+        }
+
+        // === Event Handlers ===
+
+        // Springen op spatiebalk. Gebruik togglePause als het spel gepauzeerd is.
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault(); 
+                if (isPaused && (gameState === 'running' || gameState === 'boss_fight')) {
+                    togglePause(); // Hervat als gepauzeerd
+                } else {
+                    jump(); // Spring/Vuur/Start
+                }
+            }
+        });
+
+        // Springen op klik/touch
+        canvas.addEventListener('click', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            jump();
+        });
+
+
+        // Herstartknop
+        restartButton.addEventListener('click', () => {
+            startGame();
+        });
+        
+        // Pauzeknop
+        pauseButton.addEventListener('click', togglePause);
+
+        // ** GECORRIGEERDE WINKEL KNOP LISTENERS **
+        shopButton.addEventListener('click', openShop);
+        closeShopButton.addEventListener('click', closeShop);
+
+
+        // Start het spel wanneer het venster geladen is
+        window.onload = function () {
+            // Zorg ervoor dat de afmetingen reageren op de container
+            const container = document.getElementById('gameContainer');
+            // Zorg ervoor dat de canvas breedte is ingesteld op basis van de container breedte
+            canvas.width = container.clientWidth - 50; 
+            
+            // Set de speler kleur in de ruststand op basis van de default/geladen data
+            const selectedItem = SHOP_ITEMS.find(item => item.id === userGameData.selectedColorId);
+            player.color = selectedItem ? selectedItem.color : SHOP_ITEMS[0].color;
+
+
+            drawGround();
+            drawPlayer(); 
+            updateDisplay(); 
+        };
+
+        // Pas de canvasgrootte aan bij wijziging van het venster
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('gameContainer');
+            canvas.width = container.clientWidth - 50;
+            if (gameState === 'ready') {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawGround();
+                drawPlayer();
+            }
+        });
+
+    </script>
+</body>
+</html>
